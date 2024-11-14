@@ -210,12 +210,12 @@ def upload_file(filename, real_name):
             os.remove(filename)
 
 
-@router.get("/test")
+@router.get("/app/test")
 async def test_endpoint():
     return JSONResponse(status_code=200, content={"message": "Test request successful!"})
 
 
-@router.post("/unloading-tasks/{project_id}")
+@router.post("/app/unloading-tasks/{project_id}")
 async def unload_tasks(project_id: str):
     # Создаем асинхронную задачу для обработки выгрузки задач проекта
     asyncio.create_task(process_tasks_unloading(project_id))
