@@ -1,3 +1,4 @@
+import asyncio
 import html  # для декодирования HTML-кодов
 import logging
 import os
@@ -216,6 +217,11 @@ async def test_endpoint():
 
 @router.post("/unloading-tasks/{project_id}")
 async def unload_tasks(project_id: str):
+    # Создаем асинхронную задачу для обработки выгрузки задач проекта
+    asyncio.create_task(process_tasks_unloading(project_id))
+    return JSONResponse(status_code=200, content={"message": "Задача выгрузки принята в обработку"})
+
+async def process_tasks_unloading(project_id: str):
     # Создаем временный файл Excel
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         workbook = Workbook()
@@ -298,5 +304,3 @@ async def unload_tasks(project_id: str):
 
     response = requests.post(url, headers=headers, json=body)
     response.raise_for_status()
-
-    return JSONResponse(status_code=200, content={"message": "Tasks unloaded successfully"})

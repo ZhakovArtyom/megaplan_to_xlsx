@@ -9,13 +9,13 @@ from starlette.responses import JSONResponse
 
 from src.routers.xlsx_router import router as xlsx_router
 
-# Настройка логирования
-handler = RotatingFileHandler('project.log', maxBytes=10 * 1024 * 1024, backupCount=5)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-
+# Настройка логирования с ротацией по размеру файла
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+handler = RotatingFileHandler('/app/logs/project.log', maxBytes=10 * 1024 * 1024, backupCount=5)
+handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
 logger.addHandler(handler)
 
 app = FastAPI()
@@ -45,4 +45,4 @@ app.add_middleware(
 app.include_router(xlsx_router)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=80, reload=True)

@@ -13,6 +13,11 @@ COPY . .
 
 ENV PYTHONPATH=/app
 
-EXPOSE 8000
+# Монтируем директорию для логов
+VOLUME ["/app/logs"]
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Открываем порт 80
+EXPOSE 80
+
+# Команда для запуска приложения
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
