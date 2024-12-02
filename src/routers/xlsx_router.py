@@ -154,6 +154,8 @@ def process_tasks(project_name: str, issues: List[Dict], sheet) -> None:
         issue_name = issue["name"]
         issue_data = get_task(issue["id"], MEGAPLAN_API_URL, MEGAPLAN_HEADER)
 
+        owner_name = get_responsible_name(issue_data["owner"], MEGAPLAN_API_URL, MEGAPLAN_HEADER)
+
         development_task = next(
             (task for task in issue_data["subTasks"] if "разработка продуктов" in task["name"].lower()), None)
         if development_task:
@@ -220,7 +222,7 @@ def process_tasks(project_name: str, issues: List[Dict], sheet) -> None:
 
                     sheet.cell(row=row, column=6, value=responsible_name).alignment = Alignment(horizontal="center",
                                                                                                 vertical="center")
-                    sheet.cell(row=row, column=7, value=issue_data["owner"]["name"]).alignment = Alignment(
+                    sheet.cell(row=row, column=7, value=owner_name).alignment = Alignment(
                         horizontal="center", vertical="center")
 
                     sheet.cell(row=row, column=8, value=raw_materials_comment).alignment = Alignment(
