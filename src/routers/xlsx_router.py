@@ -148,7 +148,7 @@ def clean_html(text: str) -> str:
     return text.strip()
 
 
-def process_tasks(project_name: str, issues: List[Dict], sheet) -> None:
+def process_tasks(project_name: str, issues: List[Dict], sheet, project_responsible) -> None:
     row = 2
     for issue in issues:
         issue_name = issue["name"]
@@ -166,8 +166,6 @@ def process_tasks(project_name: str, issues: List[Dict], sheet) -> None:
             raw_materials_comment = ""
             packaging_comment = ""
             last_comment = ""
-            responsible_name = get_responsible_name(development_task_data["responsible"], MEGAPLAN_API_URL,
-                                                    MEGAPLAN_HEADER)
 
             raw_materials_task = next(
                 (task for task in development_task_data["subTasks"] if task["name"] == "1. Поставщики сырья"), None)
@@ -200,6 +198,12 @@ def process_tasks(project_name: str, issues: List[Dict], sheet) -> None:
             if len(products) == 1:
                 if all(el[0].isdigit() for el in products_clean.split("\n") if el):
                     products = products_clean.split("\n")
+
+            # Форматируем дату
+            raw_date = issue_data["actualStart"]["value"]
+            date_obj = datetime.strptime(raw_date, "%Y-%m-%dT%H:%M:%S%z")
+            formatted_date = f"{date_obj.day} {MONTHS_RU[date_obj.month]}"
+
             for product in products:
                 if is_product(product):
                     sheet.cell(row=row, column=1, value=row - 1).alignment = Alignment(horizontal="center",
@@ -213,15 +217,11 @@ def process_tasks(project_name: str, issues: List[Dict], sheet) -> None:
                                                                                        horizontal="left",
                                                                                        vertical="center")
 
-                    # Форматируем дату
-                    raw_date = development_task_data["actualStart"]["value"]
-                    date_obj = datetime.strptime(raw_date, "%Y-%m-%dT%H:%M:%S%z")
-                    formatted_date = f"{date_obj.day} {MONTHS_RU[date_obj.month]}"
                     sheet.cell(row=row, column=5, value=formatted_date).alignment = Alignment(horizontal="center",
                                                                                               vertical="center")
 
-                    sheet.cell(row=row, column=6, value=responsible_name).alignment = Alignment(horizontal="center",
-                                                                                                vertical="center")
+                    sheet.cell(row=row, column=6, value=project_responsible).alignment = Alignment(horizontal="center",
+                                                                                                   vertical="center")
                     sheet.cell(row=row, column=7, value=owner_name).alignment = Alignment(
                         horizontal="center", vertical="center")
 
@@ -333,21 +333,26 @@ async def process_tasks_unloading(entity_type: str, entity_id: str):
                 issues = get_project_issues(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
                 project_data = get_project(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
                 project_name = project_data["name"]
+                project_responsible = get_responsible_name(project_data["responsible"], MEGAPLAN_API_URL,
+                                                           MEGAPLAN_HEADER)
             elif entity_type == "task":
                 task_data = get_task(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
                 issues = get_task_subtasks(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
                 project_name = task_data["name"]
+                project_responsible = get_responsible_name(task_data["responsible"], MEGAPLAN_API_URL,
+                                                           MEGAPLAN_HEADER)
             else:
                 # Эта проверка уже сделана, но оставляем её для дополнительной безопасности
                 raise HTTPException(status_code=400, detail="Unsupported entityType")
 
             # Запуск обработки задач
-            process_tasks(project_name, issues, sheet)
+            process_tasks(project_name, issues, sheet, project_responsible)
 
             # Настройка ширины колонок
             for column_cells in sheet.columns:
                 length = max(len(str(cell.value)) for cell in column_cells) + 2  # Добавляем дополнительную ширину
-                sheet.column_dimensions[column_cells[0].column_letter].width = min(length, 50)  # Ограничение максимальной шириной
+                sheet.column_dimensions[column_cells[0].column_letter].width = min(length,
+                                                                                   50)  # Ограничение максимальной шириной
 
             sheet.column_dimensions['A'].width = 5
             sheet.column_dimensions['D'].width = 50
@@ -395,7 +400,8 @@ async def process_tasks_unloading(entity_type: str, entity_id: str):
         try:
             response = requests.post(comment_url, headers=MEGAPLAN_HEADER, json=body)
             response.raise_for_status()
-            logging.info(f"Комментарий успешно отправлен для {'проекта' if entity_type == 'project' else 'задачи'} с ID: {entity_id}")
+            logging.info(
+                f"Комментарий успешно отправлен для {'проекта' if entity_type == 'project' else 'задачи'} с ID: {entity_id}")
         except requests.RequestException as e:
             logging.exception(f"Error posting comment: {e}")
             raise HTTPException(status_code=500, detail="Error posting comment")
@@ -419,7 +425,7 @@ async def process_tasks_unloading(entity_type: str, entity_id: str):
         try:
             error_response = requests.post(comment_url, headers=MEGAPLAN_HEADER, json=error_body)
             error_response.raise_for_status()
-            logging.info(f"Комментарий об ошибке успешно отправлен для {'проекта' if entity_type == 'project' else 'задачи'} с ID: {entity_id}")
+            logging.info(
+                f"Комментарий об ошибке успешно отправлен для {'проекта' if entity_type == 'project' else 'задачи'} с ID: {entity_id}")
         except requests.RequestException as ex:
             logging.exception(f"Error sending error comment: {ex}")
-
