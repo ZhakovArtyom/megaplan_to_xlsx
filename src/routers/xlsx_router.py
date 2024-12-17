@@ -1,6 +1,5 @@
 import asyncio
 import html  # для декодирования HTML-кодов
-import json
 import logging
 import os
 import tempfile
@@ -113,58 +112,6 @@ def get_comment(comment_id: str, url: str, header: Dict[str, str]) -> str:
         logging.exception(f"Error occurred while getting comment {comment_id}: {e}")
         return ""
 
-
-def get_all_comments(task_id):
-    comment_ids = []
-    limit = 100
-    page_after = None
-
-    while True:
-        params = {
-            "limit": limit,
-            "sortBy": [
-                {
-                    "contentType": "SortField",
-                    "fieldName": "id",
-                    "desc": False
-                }
-            ],
-            "fields": ["id"],
-            "onlyRequestedFields": True
-        }
-        if page_after:
-            params["pageAfter"] = page_after
-
-        params_json = json.dumps(params)
-        url = f"{MEGAPLAN_API_URL}/api/v3/task/{task_id}/comments?{params_json}"
-
-        try:
-            response = requests.get(url, headers=MEGAPLAN_HEADER, timeout=120)
-            response.raise_for_status()
-            response_data = response.json()
-
-            if 'data' in response_data:
-                comments = response_data['data']
-                comment_ids.extend(comment['id'] for comment in comments)
-
-                pagination = response_data['meta']['pagination']
-                if pagination['limit'] > len(comments):
-                    break
-
-                page_after = {
-                    "contentType": comments[-1]['contentType'],
-                    "id": comments[-1]['id']
-                }
-            else:
-                break
-
-        except requests.exceptions.RequestException as e:
-            logging.exception(f"Error occurred while getting comments for task {task_id}: {e}")
-            break
-
-        time.sleep(1)
-
-    return comment_ids
 
 def get_employee(employee_id, url, header):
     url = f"{url}/api/v3/employee/{employee_id}"
