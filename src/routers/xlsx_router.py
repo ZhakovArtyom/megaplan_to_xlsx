@@ -1,5 +1,6 @@
 import asyncio
 import html  # для декодирования HTML-кодов
+import json
 import logging
 import os
 import tempfile
@@ -113,6 +114,58 @@ def get_comment(comment_id: str, url: str, header: Dict[str, str]) -> str:
         return ""
 
 
+def get_all_comments(task_id):
+    comment_ids = []
+    limit = 100
+    page_after = None
+
+    while True:
+        params = {
+            "limit": limit,
+            "sortBy": [
+                {
+                    "contentType": "SortField",
+                    "fieldName": "id",
+                    "desc": False
+                }
+            ],
+            "fields": ["id"],
+            "onlyRequestedFields": True
+        }
+        if page_after:
+            params["pageAfter"] = page_after
+
+        params_json = json.dumps(params)
+        url = f"{MEGAPLAN_API_URL}/api/v3/task/{task_id}/comments?{params_json}"
+
+        try:
+            response = requests.get(url, headers=MEGAPLAN_HEADER, timeout=120)
+            response.raise_for_status()
+            response_data = response.json()
+
+            if 'data' in response_data:
+                comments = response_data['data']
+                comment_ids.extend(comment['id'] for comment in comments)
+
+                pagination = response_data['meta']['pagination']
+                if pagination['limit'] > len(comments):
+                    break
+
+                page_after = {
+                    "contentType": comments[-1]['contentType'],
+                    "id": comments[-1]['id']
+                }
+            else:
+                break
+
+        except requests.exceptions.RequestException as e:
+            logging.exception(f"Error occurred while getting comments for task {task_id}: {e}")
+            break
+
+        time.sleep(1)
+
+    return comment_ids
+
 def get_employee(employee_id, url, header):
     url = f"{url}/api/v3/employee/{employee_id}"
     try:
@@ -168,30 +221,32 @@ def process_tasks(project_name: str, issues: List[Dict], sheet, project_responsi
 
             raw_materials_task = next(
                 (task for task in development_task_data["subTasks"] if task["name"] == "1. Поставщики сырья"), None)
+
             if raw_materials_task:
                 logging.info(f'Получена задача 1. Поставщики сырья с ID {raw_materials_task["id"]}')
-                raw_materials_task_data = get_task(raw_materials_task["id"], MEGAPLAN_API_URL, MEGAPLAN_HEADER)
-                if raw_materials_task_data["comments"]:
-                    raw_materials_comment = get_comment(raw_materials_task_data["comments"][0]["id"], MEGAPLAN_API_URL,
-                                                        MEGAPLAN_HEADER)
+                raw_materials_comment_ids = get_all_comments(raw_materials_task["id"])
+                if raw_materials_comment_ids:
+                    first_comment_id = min(raw_materials_comment_ids, key=int)
+                    raw_materials_comment = get_comment(first_comment_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
 
             packaging_task = next(
                 (task for task in development_task_data["subTasks"] if task["name"] == "2. Поставщики упаковки"), None)
             if packaging_task:
                 logging.info(f'Получена задача 2. Поставщики упаковки с ID {packaging_task["id"]}')
-                packaging_task_data = get_task(packaging_task["id"], MEGAPLAN_API_URL, MEGAPLAN_HEADER)
-                if packaging_task_data["comments"]:
-                    packaging_comment = get_comment(packaging_task_data["comments"][0]["id"], MEGAPLAN_API_URL,
-                                                    MEGAPLAN_HEADER)
+                packaging_comment_ids = get_all_comments(packaging_task["id"])
+                if packaging_comment_ids:
+                    first_comment_id = min(packaging_comment_ids, key=int)
+                    packaging_comment = get_comment(first_comment_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
 
-            if development_task_data["comments"]:
-                last_comment = get_comment(development_task_data["comments"][-1]["id"], MEGAPLAN_API_URL,
+            if development_task_data["lastComment"]:
+                last_comment = get_comment(development_task_data["lastComment"]["id"], MEGAPLAN_API_URL,
                                            MEGAPLAN_HEADER)
 
             # Декодирование и очистка данных
             products_raw = development_task_data["subject"]
             products_clean = clean_html(products_raw)
             logging.info(f"Продукты: {products_clean}")
+            logging.info(f"Комментарии:\n{raw_materials_comment=}\n{packaging_comment=}\n{last_comment=}\n")
 
             products = products_clean.split("\n\n")  # Разделение продуктов
             if len(products) == 1:
