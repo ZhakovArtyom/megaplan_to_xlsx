@@ -224,19 +224,15 @@ def process_tasks(project_name: str, issues: List[Dict], sheet, project_responsi
 
             if raw_materials_task:
                 logging.info(f'Получена задача 1. Поставщики сырья с ID {raw_materials_task["id"]}')
-                raw_materials_comment_ids = get_all_comments(raw_materials_task["id"])
-                if raw_materials_comment_ids:
-                    first_comment_id = min(raw_materials_comment_ids, key=int)
-                    raw_materials_comment = get_comment(first_comment_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
+                raw_materials_task_data = get_task(raw_materials_task["id"], MEGAPLAN_API_URL, MEGAPLAN_HEADER)
+                raw_materials_comment = raw_materials_task_data.get("Category130CustomFieldStatus")
 
             packaging_task = next(
                 (task for task in development_task_data["subTasks"] if task["name"] == "2. Поставщики упаковки"), None)
             if packaging_task:
                 logging.info(f'Получена задача 2. Поставщики упаковки с ID {packaging_task["id"]}')
-                packaging_comment_ids = get_all_comments(packaging_task["id"])
-                if packaging_comment_ids:
-                    first_comment_id = min(packaging_comment_ids, key=int)
-                    packaging_comment = get_comment(first_comment_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
+                packaging_task_data = get_task(packaging_task["id"], MEGAPLAN_API_URL, MEGAPLAN_HEADER)
+                packaging_comment = packaging_task_data.get("Category130CustomFieldStatus")
 
             if development_task_data["lastComment"]:
                 last_comment = get_comment(development_task_data["lastComment"]["id"], MEGAPLAN_API_URL,
