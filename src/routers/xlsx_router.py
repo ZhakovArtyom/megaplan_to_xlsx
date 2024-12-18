@@ -148,8 +148,14 @@ def clean_html(text: str) -> str:
     return text.strip()
 
 
+def extract_number(task):
+    # Извлекаем первое число из строки name
+    return int("".join(task["name"].split()[0].split(".")))
+
+
 def process_tasks(project_name: str, issues: List[Dict], sheet, project_responsible) -> None:
     row = 2
+    logging.info(f"Задачи линейки:\n{"\n".join(issue["name"] for issue in issues)}")
     for issue in issues:
         issue_name = issue["name"]
         issue_data = get_task(issue["id"], MEGAPLAN_API_URL, MEGAPLAN_HEADER)
@@ -328,6 +334,7 @@ async def process_tasks_unloading(entity_type: str, entity_id: str):
             # Получение данных в зависимости от типа сущности
             if entity_type == "project":
                 issues = get_project_issues(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
+                issues = sorted(issues, key=extract_number)
                 project_data = get_project(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
                 project_name = project_data["name"]
                 project_responsible = get_responsible_name(project_data["responsible"], MEGAPLAN_API_URL,
@@ -335,6 +342,7 @@ async def process_tasks_unloading(entity_type: str, entity_id: str):
             elif entity_type == "task":
                 task_data = get_task(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
                 issues = get_task_subtasks(entity_id, MEGAPLAN_API_URL, MEGAPLAN_HEADER)
+                issues = sorted(issues, key=extract_number)
                 project_name = task_data["name"]
                 project_responsible = get_responsible_name(task_data["responsible"], MEGAPLAN_API_URL,
                                                            MEGAPLAN_HEADER)
